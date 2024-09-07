@@ -2,17 +2,27 @@ package ru.practicum.shareit.item;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.exception.AccessRightException;
+import ru.practicum.shareit.exception.CommentCreateException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemDtoBookings;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
+import ru.practicum.shareit.utils.BookingStatus;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
+import static ru.practicum.shareit.item.CommentMapper.mapToComment;
+import static ru.practicum.shareit.item.CommentMapper.mapToCommentDto;
+import static ru.practicum.shareit.item.ItemMapper.mapToBookingsFromDto;
 import static ru.practicum.shareit.item.ItemMapper.mapToItem;
+import static ru.practicum.shareit.item.ItemMapper.mapToItemDto;
 
 @Service
 @Slf4j
@@ -20,10 +30,14 @@ public class ItemServiceImpl implements ItemService {
 
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
+    private final BookingRepository bookingRepository;
 
-    public ItemServiceImpl(ItemRepository itemRepository, UserRepository userRepository) {
+    public ItemServiceImpl(ItemRepository itemRepository, UserRepository userRepository, CommentRepository commentRepository, BookingRepository bookingRepository) {
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
+        this.commentRepository = commentRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     @Override
@@ -32,10 +46,9 @@ public class ItemServiceImpl implements ItemService {
         if (id == null) {
             throw new NotFoundException("Id is null");
         }
-        if (userRepository.getUser(id) == null) {
-            throw new NotFoundException("User with id " + id + " not found");
-        }
-        return itemRepository.save(mapToItem(itemDto, id, null));
+        userRepository.findById(id).orElseThrow(() ->
+                new NotFoundException("User with id " + id + " not found"));
+        return itemRepository.save(mapToItem(itemDto, userRepository.findById(id).orElse(null), null));
     }
 
     @Override
@@ -47,35 +60,34 @@ public class ItemServiceImpl implements ItemService {
         if (itemId == null) {
             throw new NotFoundException("ItemId is null");
         }
-        Item item = itemRepository.findById(itemId);
-        if (item == null) {
-            throw new NotFoundException("Item with id " + itemId + " not found");
-        }
-        if (!item.getOwnerId().equals(userId)) {
+        Item item = itemRepository.findById(itemId).orElseThrow(() ->
+                new NotFoundException("Item with id " + itemId + " not found"));
+
+        if (!item.getOwner().getId().equals(userId)) {
             throw new AccessRightException("You do not have permission to update this item");
         }
-        if (userRepository.getUser(userId) == null) {
-            throw new NotFoundException("User with id " + userId + " not found");
-        }
-        return itemRepository.update(mapToItem(itemDto, userId, itemId));
+        userRepository.findById(userId).orElseThrow(() ->
+                new NotFoundException("User with id " + userId + " not found"));
+        return itemRepository.save(mapToItem(itemDto, userRepository.findById(userId).orElse(null), itemId));
     }
 
     @Override
-    public Item getItem(Long id) {
+    public ItemDtoBookings getItem(Long id) {
         log.info("Getting item with id {}", id);
-        return itemRepository.findById(id);
+        ItemDto itemDto = mapToItemDto(itemRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Item with id " + id + " not found")));
+        itemDto.setComments(commentRepository.findAllByItemId(id));
+        return mapToBookingsFromDto(itemDto);
     }
 
     @Override
-    public List<ItemDto> getItems(Long userId) {
+    public List<ItemDtoBookings> getItems(Long userId) {
         log.info("Getting items with userId {}", userId);
-        if (userRepository.getUser(userId) == null) {
-            throw new NotFoundException("User with id " + userId + " not found");
-        }
-        return itemRepository.findAll()
+        userRepository.findById(userId).orElseThrow(() ->
+                new NotFoundException("User with id " + userId + " not found"));
+        return itemRepository.findItemsWithBookings(userId, LocalDateTime.now())
                 .stream()
-                .filter(item -> Objects.equals(item.getOwnerId(), userId))
-                .map(ItemMapper::mapToItemDto)
+                .peek(item -> item.setComments(commentRepository.findAllByItemId(item.getId())))
                 .toList();
     }
 
@@ -86,15 +98,26 @@ public class ItemServiceImpl implements ItemService {
         if (query == null || query.isEmpty()) {
             return new ArrayList<>();
         }
-        String lowerCaseQuery = query.toLowerCase();
-
-
-        return itemRepository.findAll()
+        return itemRepository.search(query)
                 .stream()
-                .filter(Item::getAvailable)
-                .filter(item -> item.getName().toLowerCase().contains(lowerCaseQuery)
-                        || item.getDescription().toLowerCase().contains(lowerCaseQuery))
                 .map(ItemMapper::mapToItemDto)
                 .toList();
+    }
+
+    @Override
+    public CommentDto addComment(CommentDto commentDto, Long itemId, Long userId) {
+        log.info("Adding a comment for Item {} by user {}", itemId, userId);
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item with id " + itemId + " not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        if (!bookingRepository.findBookingByBookerIdAndItemIdAndStatusAndEndBefore(
+                userId,
+                itemId,
+                BookingStatus.APPROVED,
+                LocalDateTime.now()).isEmpty()) {
+            return mapToCommentDto(commentRepository.save(mapToComment(commentDto, user, item)));
+        }
+        throw new CommentCreateException("You can`t add comment to item " + itemId);
     }
 }

@@ -1,6 +1,5 @@
-package ru.practicum.shareit.item.model;
+package ru.practicum.shareit.item;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -10,21 +9,25 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 import org.hibernate.annotations.DynamicUpdate;
+import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.User;
 
-@Entity
-@Table(name = "items")
+import java.time.LocalDateTime;
+
 @Data
+@Entity
+@Table(name = "comments")
 @DynamicUpdate
-public class Item {
+public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private String description;
+    private String text;
     @ManyToOne
-    @JoinColumn(name = "owner_id")
-    private User owner;
-    @Column(name = "is_available")
-    private Boolean available;
+    @JoinColumn(name = "item_id")
+    private Item item;
+    @ManyToOne
+    @JoinColumn(name = "author_id")
+    private User author;
+    private LocalDateTime created;
 }

@@ -1,7 +1,6 @@
 package ru.practicum.shareit.utils;
 
 
-import com.sun.jdi.request.DuplicateRequestException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -10,6 +9,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.practicum.shareit.exception.AccessRightException;
+import ru.practicum.shareit.exception.BookingCreationException;
+import ru.practicum.shareit.exception.CommentCreateException;
+import ru.practicum.shareit.exception.DuplicateCreateException;
 import ru.practicum.shareit.exception.NotFoundException;
 
 import java.time.LocalDateTime;
@@ -43,9 +45,9 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
     }
 
-    @ExceptionHandler(DuplicateRequestException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateRequestException(DuplicateRequestException e, HttpServletRequest request) {
-        log.error("DuplicateRequestException: {}", e.getMessage());
+    @ExceptionHandler(DuplicateCreateException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateCreateException(DuplicateCreateException e, HttpServletRequest request) {
+        log.error("DuplicateCreateException: {}", e.getMessage());
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .error(e.getMessage() + "; ")
                 .path(request.getRequestURI())
@@ -66,6 +68,32 @@ public class GlobalExceptionHandler {
         });
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .error(errors.toString())
+                .path(request.getRequestURI())
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(BookingCreationException.class)
+    public ResponseEntity<ErrorResponse> handleBookingAvailableException(
+            BookingCreationException ex, HttpServletRequest request) {
+        log.error("BookingAvailableException: {}", ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .error(ex.getMessage() + "; ")
+                .path(request.getRequestURI())
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(CommentCreateException.class)
+    public ResponseEntity<ErrorResponse> handleCommentCreateException(
+            CommentCreateException ex, HttpServletRequest request) {
+        log.error("CommentCreateException: {}", ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .error(ex.getMessage() + "; ")
                 .path(request.getRequestURI())
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_REQUEST.value())
