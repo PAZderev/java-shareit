@@ -17,6 +17,7 @@ import ru.practicum.shareit.utils.BookingStatus;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static ru.practicum.shareit.item.CommentMapper.mapToComment;
 import static ru.practicum.shareit.item.CommentMapper.mapToCommentDto;
@@ -111,6 +112,19 @@ public class ItemServiceImpl implements ItemService {
                 .orElseThrow(() -> new NotFoundException("Item with id " + itemId + " not found"));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        System.out.println("****************************************");
+        System.out.println("****************************************");
+        System.out.println("****************************************");
+        System.out.println("TIME : " + LocalDateTime.now());
+        System.out.println(bookingRepository.findAll().stream()
+                        .filter(booking -> Objects.equals(booking.getItem().getId(), itemId) && Objects.equals(booking.getBooker().getId(), userId))
+                .toList());
+        System.out.println("****************************************");
+        System.out.println("****************************************");
+        System.out.println("****************************************");
+        System.out.println("****************************************");
+        System.out.println("****************************************");
+
         if (!bookingRepository.findBookingByBookerIdAndItemIdAndStatusAndEndBefore(
                 userId,
                 itemId,

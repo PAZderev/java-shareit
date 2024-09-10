@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS users
 (
     id    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email varchar(320),
+    email varchar(100),
     name  varchar(100),
     CONSTRAINT uq_user_email UNIQUE (email)
 );
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS bookings
 CREATE TABLE IF NOT EXISTS comments
 (
     id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    text      VARCHAR(1000),
+    content      VARCHAR(1000),
     item_id   BIGINT,
     author_id BIGINT,
     created   TIMESTAMP WITHOUT TIME ZONE,
