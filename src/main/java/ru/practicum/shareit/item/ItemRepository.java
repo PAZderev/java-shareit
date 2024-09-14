@@ -1,62 +1,39 @@
 package ru.practicum.shareit.item;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Repository;
-import ru.practicum.shareit.exception.NotFoundException;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import ru.practicum.shareit.item.dto.ItemDtoBookings;
 import ru.practicum.shareit.item.model.Item;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
-@Repository
-@Slf4j
-public class ItemRepository {
+public interface ItemRepository extends JpaRepository<Item, Long> {
 
-    private final Map<Long, Item> items = new HashMap<>();
-    private Long currentItemId = 1L;
+    List<Item> findAllByOwnerId(Long ownerId);
 
-    public Item findById(Long id) {
-        log.info("Find Item by id: {}", id);
-        if (!items.containsKey(id)) {
-            throw new NotFoundException("Item with id " + id + " not found");
-        }
-        return items.get(id);
-    }
+    @Query("SELECT new ru.practicum.shareit.item.dto.ItemDtoBookings(" +
+            "i.id, " +
+            "i.name, " +
+            "i.description, " +
+            "i.available, " +
+            "(SELECT MAX(b.end) FROM Booking b " +
+            "WHERE b.item.id = i.id " +
+            "AND b.end < :now " +
+            "AND b.status = ru.practicum.shareit.utils.BookingStatus.APPROVED), " +
+            "(SELECT MIN(b.start) FROM Booking b " +
+            "WHERE b.item.id = i.id " +
+            "AND b.start > :now " +
+            "AND b.status = ru.practicum.shareit.utils.BookingStatus.APPROVED)" +
+            ") " +
+            "FROM Item i " +
+            "WHERE i.owner.id = :ownerId")
+    List<ItemDtoBookings> findItemsWithBookings(@Param("ownerId") Long ownerId, @Param("now") LocalDateTime now);
 
-    public Item save(Item item) {
-        log.info("Save Item: {}", item);
-        item.setId(currentItemId);
-        items.put(currentItemId++, item);
-        return items.get(item.getId());
-    }
+    @Query(" select i from Item i " +
+            "where (upper(i.name) like upper(concat('%', ?1, '%')) " +
+            " or upper(i.description) like upper(concat('%', ?1, '%'))) and i.available = true")
+    List<Item> search(String text);
 
-    public Item update(Item item) {
-        log.info("Update Item: {}", item);
-        if (!items.containsKey(item.getId())) {
-            throw new NotFoundException("Item with id " + item.getId() + " not found");
-        }
-        Item updatingItem = items.get(item.getId());
-        Optional.ofNullable(item.getName()).ifPresent(updatingItem::setName);
-        Optional.ofNullable(item.getDescription()).ifPresent(updatingItem::setDescription);
-        Optional.ofNullable(item.getAvailable()).ifPresent(updatingItem::setAvailable);
-        Optional.ofNullable(item.getOwnerId()).ifPresent(updatingItem::setOwnerId);
-        items.put(item.getId(), updatingItem);
-        return items.get(item.getId());
-    }
-
-    public void delete(Long id) {
-        log.info("Delete Item: {}", id);
-        if (!items.containsKey(id)) {
-            throw new NotFoundException("Item with id " + id + " not found");
-        }
-        items.remove(id);
-    }
-
-    public List<Item> findAll() {
-        log.info("Find All Items");
-        return new ArrayList<>(items.values());
-    }
 }
