@@ -10,20 +10,23 @@ import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemDtoBookings;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.request.ItemRequest;
+import ru.practicum.shareit.request.ItemRequestService;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 import ru.practicum.shareit.utils.BookingStatus;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 import static ru.practicum.shareit.item.CommentMapper.mapToComment;
 import static ru.practicum.shareit.item.CommentMapper.mapToCommentDto;
 import static ru.practicum.shareit.item.ItemMapper.mapToBookingsFromDto;
 import static ru.practicum.shareit.item.ItemMapper.mapToItem;
 import static ru.practicum.shareit.item.ItemMapper.mapToItemDto;
+import static ru.practicum.shareit.request.ItemRequestMapper.mapToItemRequest;
 
 @Service
 @Slf4j
@@ -33,12 +36,14 @@ public class ItemServiceImpl implements ItemService {
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
     private final BookingRepository bookingRepository;
+    private final ItemRequestService itemRequestService;
 
-    public ItemServiceImpl(ItemRepository itemRepository, UserRepository userRepository, CommentRepository commentRepository, BookingRepository bookingRepository) {
+    public ItemServiceImpl(ItemRepository itemRepository, UserRepository userRepository, CommentRepository commentRepository, BookingRepository bookingRepository, ItemRequestService itemRequestService) {
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.bookingRepository = bookingRepository;
+        this.itemRequestService = itemRequestService;
     }
 
     @Override
@@ -47,9 +52,13 @@ public class ItemServiceImpl implements ItemService {
         if (id == null) {
             throw new NotFoundException("Id is null");
         }
-        userRepository.findById(id).orElseThrow(() ->
+        User user = userRepository.findById(id).orElseThrow(() ->
                 new NotFoundException("User with id " + id + " not found"));
-        return itemRepository.save(mapToItem(itemDto, userRepository.findById(id).orElse(null), null));
+        ItemRequest request = null;
+        if (itemDto.getRequestId() != null) {
+            request = itemRequestService.findById(itemDto.getRequestId());
+        }
+        return itemRepository.save(mapToItem(itemDto, user, null, request));
     }
 
     @Override
@@ -69,7 +78,13 @@ public class ItemServiceImpl implements ItemService {
         }
         userRepository.findById(userId).orElseThrow(() ->
                 new NotFoundException("User with id " + userId + " not found"));
-        return itemRepository.save(mapToItem(itemDto, userRepository.findById(userId).orElse(null), itemId));
+
+        return itemRepository.save(mapToItem(
+                itemDto,
+                userRepository.findById(userId).orElse(null),
+                itemId,
+                itemRequestService.findById(itemDto.getRequestId())
+                ));
     }
 
     @Override
@@ -112,19 +127,6 @@ public class ItemServiceImpl implements ItemService {
                 .orElseThrow(() -> new NotFoundException("Item with id " + itemId + " not found"));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
-        System.out.println("****************************************");
-        System.out.println("****************************************");
-        System.out.println("****************************************");
-        System.out.println("TIME : " + LocalDateTime.now());
-        System.out.println(bookingRepository.findAll().stream()
-                        .filter(booking -> Objects.equals(booking.getItem().getId(), itemId) && Objects.equals(booking.getBooker().getId(), userId))
-                .toList());
-        System.out.println("****************************************");
-        System.out.println("****************************************");
-        System.out.println("****************************************");
-        System.out.println("****************************************");
-        System.out.println("****************************************");
-
         if (!bookingRepository.findBookingByBookerIdAndItemIdAndStatusAndEndBefore(
                 userId,
                 itemId,
@@ -133,5 +135,10 @@ public class ItemServiceImpl implements ItemService {
             return mapToCommentDto(commentRepository.save(mapToComment(commentDto, user, item)));
         }
         throw new CommentCreateException("You can`t add comment to item " + itemId);
+    }
+
+    @Override
+    public Collection<Item> getItemsByRequestsIds(Collection<Long> requestsIds) {
+        return itemRepository.findAllByRequestIdIn(requestsIds);
     }
 }

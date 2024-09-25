@@ -5,6 +5,7 @@ import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemDtoBookings;
 import ru.practicum.shareit.item.model.Item;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ItemService {
@@ -20,4 +21,6 @@ public interface ItemService {
     List<ItemDto> searchItems(String query);
 
     CommentDto addComment(CommentDto commentDto, Long itemId, Long userId);
+
+    Collection<Item> getItemsByRequestsIds(Collection<Long> requestsIds);
 }

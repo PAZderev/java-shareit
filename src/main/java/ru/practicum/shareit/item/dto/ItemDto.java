@@ -17,4 +17,5 @@ public class ItemDto {
     @NotNull(message = "available field required")
     private Boolean available;
     private List<Comment> comments;
+    private Long requestId;
 }
